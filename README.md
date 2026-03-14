@@ -96,39 +96,41 @@ Verify registration:
   Run: claude mcp list
   "context-mate" must appear in the output.
 
-STEP 5 -- TELL ME TO RESTART
+STEP 5 -- CONFIGURE THE PROJECT
 
-Tell me: "Setup complete. Exit Claude Code fully and reopen it. After
-restarting, run /mcp and confirm you see context-mate with 4 tools. Then
-come back and I will set up your project to use it."
+THIS STEP IS MANDATORY. DO NOT SKIP IT.
 
-STEP 6 -- AFTER RESTART, CONFIGURE THE PROJECT
+Create a file called CLAUDE.md in the root of my current project directory
+(the directory I opened Claude Code in, NOT ~/ContextMate). If CLAUDE.md
+already exists, append to it. Write exactly this content:
 
-When I confirm the tools are visible, create or append to CLAUDE.md in the
-root of my current project directory with exactly this content:
-
+---START---
 ## Context Retrieval
 
-This project uses the `context-mate` MCP server for all code reading and
-search operations.
+This project uses the `context-mate` MCP server for semantic code search.
 
 Rules:
-- At the start of a session, call `index_directory` with the project root
-  to bulk-index all supported files. This makes `search_codebase` work
-  across the entire project.
-- When you need to read a file, use the `read_file` tool instead of reading
-  the file directly. Pass the file path and a short description of why you
-  need it as the `reason` parameter. The tool returns only the relevant
-  chunks, not the entire file.
-- When you need to find code related to a concept, function, or behavior,
-  use the `search_codebase` tool with a natural language query. Do not
-  grep or glob for code unless the MCP results are insufficient.
+- At the start of every session, call `index_directory` with the absolute
+  path to this project root. This indexes all supported files so
+  `search_codebase` works across the entire project.
+- Use `read_file` instead of reading files directly. Pass the file path
+  and a short reason. It returns only the relevant chunks, not the whole
+  file.
+- Use `search_codebase` with a natural language query to find code related
+  to a concept or behavior. Do not grep or glob unless the MCP results
+  are insufficient.
 - Prefer MCP tools over direct file access. Only fall back to direct reads
   when the MCP tools do not return what you need.
 - After a session with significant MCP usage, call `get_session_summary`
   to report how many targeted chunks were served.
+---END---
 
-Then tell me setup is done.
+After writing the file, verify it exists by reading it back.
+
+STEP 6 -- RESTART
+
+Tell me: "Setup complete. Exit Claude Code fully and reopen it. Run /mcp
+and confirm you see context-mate with 4 tools."
 ```
 
 ---
