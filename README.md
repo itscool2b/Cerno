@@ -1,22 +1,29 @@
-# ContextMate
+<p align="center">
+  <img src="docs/assets/contextmatebanner.png" width="800" alt="ContextMate Banner">
+</p>
 
-**Semantic code search for Claude Code.** Index your codebase into meaningful
-chunks, return only what matters — with layered context that includes
-dependencies, file signatures, and a repo map. Local embeddings. No API keys.
-No cloud.
+<p align="center">
+  <strong>Semantic code search for Claude Code.</strong><br>
+  Index your codebase into meaningful chunks, return only what matters — with layered context that includes dependencies, file signatures, and a repo map. Local embeddings. No API keys. No cloud.
+</p>
 
-Supports **Python, JavaScript, TypeScript, Rust, Go, Java, C, C++, Ruby, and C#**.
+<p align="center">
+  <a href="https://github.com/itscool2b/ContextMate/blob/main/LICENSE"><img src="https://img.shields.io/github/license/itscool2b/ContextMate?style=for-the-badge" alt="License"></a>
+  <img src="https://img.shields.io/badge/python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python 3.11+">
+  <img src="https://img.shields.io/badge/MCP-server-8A2BE2?style=for-the-badge" alt="MCP Server">
+  <img src="https://img.shields.io/badge/100%25-local-22c55e?style=for-the-badge" alt="100% Local">
+  <img src="https://img.shields.io/badge/languages-10-blue?style=for-the-badge" alt="10 Languages">
+</p>
 
-```
-source code --> tree-sitter (parse) --> Ollama (embed) --> ChromaDB (store)
-                                                               |
-                                          query + 4-layer context assembly
-                                                               |
-                                                               v
-                                               repo map + file context +
-                                            dependency graph + matched chunks
-                                                     --> Claude
-```
+<p align="center">
+  <a href="#why-contextmate">Why</a> ·
+  <a href="#one-command-setup">Setup</a> ·
+  <a href="#what-you-get">Tools</a> ·
+  <a href="#how-it-works--4-layer-context-system">How It Works</a> ·
+  <a href="#architecture">Architecture</a> ·
+  <a href="#supported-languages">Languages</a> ·
+  <a href="#troubleshooting">Troubleshooting</a>
+</p>
 
 ---
 
@@ -44,6 +51,11 @@ authentication work?"
 | With ContextMate (top 10 chunks) | 3,612 | ~903 |
 | **Reduction** | | **93%** |
 
+```
+Without ContextMate  ████████████████████████████████████████████████  ~12,426 tokens
+With ContextMate     ████                                              ~903 tokens
+```
+
 ContextMate returned 10 targeted chunks from `oauth.ts`, `middleware.ts`,
 `user.ts`, and `notification.ts` — the files that actually deal with auth.
 The other 11 files were never loaded into context.
@@ -52,8 +64,10 @@ The other 11 files were never loaded into context.
 
 ## One-Command Setup
 
-Paste this into Claude Code. It walks through every step, checks for errors,
-and sets up the MCP server and project config for you.
+<details>
+<summary><strong>Paste this into Claude Code to set up everything automatically</strong></summary>
+
+<br>
 
 ```
 Set up ContextMate, a local MCP server that gives you semantic code search
@@ -185,6 +199,8 @@ Tell me: "Setup complete. Exit Claude Code fully and reopen it. Run /mcp
 and confirm you see context-mate with 5 tools."
 ```
 
+</details>
+
 ---
 
 ## What You Get
@@ -205,6 +221,10 @@ context focused and costs down.
 ---
 
 ## How It Works — 4-Layer Context System
+
+<p align="center">
+  <img src="docs/assets/contextmatediagram.png" width="700" alt="4-Layer Context Diagram">
+</p>
 
 When you call `search_codebase` or `read_file`, ContextMate doesn't just
 return raw matching chunks. It assembles a layered response with four types
@@ -252,7 +272,10 @@ your query.
 Each layer uses only what it needs. Unused tokens flow to the next layer:
 
 ```
-Chunks (50%) --> File Context (20%) --> Dependencies (15%) --> Repo Map (15%)
+┌──────────────┐    ┌───────────────┐    ┌──────────────┐    ┌──────────────┐
+│ Chunks  50%  │───>│ File Ctx  20% │───>│  Deps   15%  │───>│ Repo Map 15% │
+└──────────────┘    └───────────────┘    └──────────────┘    └──────────────┘
+                 unused tokens flow right ──────────────────>
 ```
 
 If chunks only use 40% of their budget, the remaining 10% flows to file
@@ -266,21 +289,23 @@ chunks 55%, file context 25%, dependencies 20%.
 ## Architecture
 
 ```
-  read_file / search_codebase / index_directory
-                    |
-                server.py              MCP tool definitions, session stats
-                    |
-          indexingpipeline.py          parse -> chunk -> embed -> store
-           /        |        \
-     chunker.py  ollama.py  chroma.py
-     tree-sitter  embed via   ChromaDB
-     AST parsing  nomic-embed  storage
-           \        |        /
-                context.py             4-layer context assembly + budgeting
-                    |
-                 graph.py              repo map + dependency resolution
-                    |
-              tokencount.py            token estimation + truncation
+┌─────────────────────────────────────────────────────────────────────┐
+│              read_file / search_codebase / index_directory          │
+├─────────────────────────────────────────────────────────────────────┤
+│  server.py              MCP tool definitions, session stats         │
+├─────────────────────────────────────────────────────────────────────┤
+│  indexingpipeline.py    parse -> chunk -> embed -> store            │
+├────────────┬────────────────────┬───────────────────────────────────┤
+│ chunker.py │    ollama.py       │  chroma.py                       │
+│ tree-sitter│    embed via       │  ChromaDB                        │
+│ AST parsing│    nomic-embed     │  storage                         │
+├────────────┴────────────────────┴───────────────────────────────────┤
+│  context.py             4-layer context assembly + budgeting        │
+├─────────────────────────────────────────────────────────────────────┤
+│  graph.py               repo map + dependency resolution            │
+├─────────────────────────────────────────────────────────────────────┤
+│  tokencount.py          token estimation + truncation               │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
 | Module | Role |
@@ -320,8 +345,10 @@ class.
 
 ## Manual Setup
 
-If you prefer to do it yourself or the prompt above doesn't work for your
-environment.
+<details>
+<summary><strong>Click to expand manual installation steps</strong></summary>
+
+<br>
 
 ### Prerequisites
 
@@ -363,6 +390,8 @@ Restart Claude Code. Run `/mcp` to confirm `context-mate` appears with 5 tools.
 Add the context retrieval rules to `CLAUDE.md` in your project root. See the
 setup prompt above for the exact text.
 
+</details>
+
 ---
 
 ## Manage
@@ -394,11 +423,17 @@ ContextMate/
   requirements.txt       Python dependencies
   test_context_layers.py tests for the 4-layer context system
   contextmate_db/        persistent vector storage (gitignored)
+  docs/assets/           banner and diagram images
 ```
 
 ---
 
 ## Troubleshooting
+
+<details>
+<summary><strong>Click to expand troubleshooting guide</strong></summary>
+
+<br>
 
 **Tools not showing in `/mcp`** — Run `claude mcp list` to confirm
 registration. Restart Claude Code after registering. If the server crashes
@@ -426,3 +461,11 @@ on the project. If the file has changed, old chunks are deleted and the file
 is re-indexed automatically. Unchanged files are skipped.
 
 **Full reset** — `rm -rf ~/ContextMate/contextmate_db/`
+
+</details>
+
+---
+
+<p align="center">
+  <sub>MIT License — <a href="LICENSE">LICENSE</a></sub>
+</p>
