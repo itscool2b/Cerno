@@ -12,5 +12,8 @@ def scan(path):
         for f in files:
             fp = os.path.join(root, f)
             if get_language_config(fp):
-                results.append(index(fp))
+                try:
+                    results.append(index(fp))
+                except Exception as e:
+                    results.append({"status": "error", "message": f"Failed to index {fp}: {e}"})
     return results

@@ -1,7 +1,29 @@
+# Virtual environments
 venv/
+.venv/
+env/
+
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+
+# ChromaDB data
 contextmate_db/
 cerno_db/
+
+# Claude Code
 .claude/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
 result
 shell.nix

@@ -1,9 +1,13 @@
 import hashlib
+import json
 import os
 
 from ollama import Ai
-from chunker import parse, chunk, get_language_config
-from chroma import upsert_chunk, delete_file, get_file_hash
+from chunker import parse, chunk, get_language_config, extract_file_metadata
+from chroma import upsert_chunk, upsert_file_metadata, delete_file, get_file_hash
+from tokencount import truncate_to_budget
+
+EMBED_TOKEN_LIMIT = 8192
 
 
 def index(path):
@@ -36,17 +40,33 @@ def index(path):
     if not chunks:
         return {"status": "warning", "message": "No semantic chunks found in file."}
 
-    # Embed each chunk and store in ChromaDB
-    for c in chunks:
-        embedding = Ai(c["text"]).embed()
-        chunk_id = hashlib.sha256(f"{path}:{c['start_line']}:{c['end_line']}".encode()).hexdigest()
-        metadata = {
-            "path": path,
-            "start_line": c["start_line"],
-            "end_line": c["end_line"],
-            "type": c["type"],
-            "content_hash": content_hash,
-        }
-        upsert_chunk(chunk_id, embedding, c["text"], metadata)
+    # Store file-level metadata for context layers
+    file_meta = extract_file_metadata(path)
+    upsert_file_metadata(path, json.dumps(file_meta), content_hash)
 
-    return {"status": "indexed", "message": f"Indexed {len(chunks)} chunks."}
+    # Embed each chunk and store in ChromaDB
+    embedded = 0
+    for c in chunks:
+        try:
+            embed_text = truncate_to_budget(c["text"], EMBED_TOKEN_LIMIT)
+            embedding = Ai(embed_text).embed()
+            chunk_id = hashlib.sha256(f"{path}:{c['start_line']}:{c['end_line']}".encode()).hexdigest()
+            metadata = {
+                "path": path,
+                "start_line": c["start_line"],
+                "end_line": c["end_line"],
+                "type": c["type"],
+                "content_hash": content_hash,
+                "name": c.get("name", ""),
+                "signature": c.get("signature", ""),
+                "calls": json.dumps(c.get("calls", [])),
+                "docstring": c.get("docstring", ""),
+            }
+            upsert_chunk(chunk_id, embedding, c["text"], metadata)
+            embedded += 1
+        except Exception as e:
+            print(f"Warning: failed to embed chunk {c.get('name', '?')} in {path}: {e}")
+
+    if embedded == 0:
+        return {"status": "warning", "message": f"File has {len(chunks)} chunks but none could be embedded."}
+    return {"status": "indexed", "message": f"Indexed {embedded}/{len(chunks)} chunks."}
